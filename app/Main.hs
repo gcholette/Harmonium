@@ -1,5 +1,14 @@
 module Main where
 
+import Codec.Midi
+  ( FileType (MultiTrack),
+    Message (NoteOff, NoteOn, TrackEnd),
+    Midi (Midi, fileType, timeDiv, tracks),
+    Ticks,
+    TimeDiv (TicksPerBeat),
+    exportFile,
+  )
+
 {-
   pitches (C, 4)
   durations
@@ -7,9 +16,7 @@ module Main where
 
 type Note = String
 
-data Step = Semitone | Tone deriving(Show)
-
-type Pitch = (Note, Integer)
+data Step = Semitone | Tone deriving (Show)
 
 ionianSteps :: [Step]
 ionianSteps = [Tone, Tone, Semitone, Tone, Tone, Tone, Semitone]
@@ -17,7 +24,7 @@ ionianSteps = [Tone, Tone, Semitone, Tone, Tone, Tone, Semitone]
 rotateSteps :: [Step] -> Int -> [Step]
 rotateSteps [] _ = []
 rotateSteps steps 0 = steps
-rotateSteps (x:xs) n = rotateSteps (xs ++ [x]) (n - 1)
+rotateSteps (x : xs) n = rotateSteps (xs ++ [x]) (n - 1)
 
 step2Int :: Step -> Int
 step2Int Semitone = 1
@@ -26,12 +33,30 @@ step2Int Tone = 2
 accumulateSteps :: [Step] -> [Int]
 accumulateSteps = scanl (\x y -> step2Int y + x) 0
 
-(-+-) :: [a] -> [a] -> [a]
-val1 -+- val2 = val1 ++ val2
+raiseNotes :: Int -> [Int] -> [Int]
+raiseNotes offset = map (+ offset)
 
-pitch1 :: Pitch
-pitch1 = ("A", 3)
+(-+-) :: [Int] -> [Int] -> [Int]
+val1 -+- val2 = val1 ++ val2 ++ [1, 2, 3]
 
+midiNote :: Int -> [(Ticks, Message)]
+midiNote pitch =
+  [ (0, NoteOn 0 pitch 80),
+    (24, NoteOn 0 pitch 0)
+  ]
+
+track0 :: [(Ticks, Message)]
+track0 =
+  concatMap midiNote (raiseNotes 60 (accumulateSteps ionianSteps))
+    ++ [(0, TrackEnd)]
+
+mainMidi :: Midi
+mainMidi =
+  Midi
+    { fileType = MultiTrack,
+      timeDiv = TicksPerBeat 24,
+      tracks = [track0]
+    }
 
 main :: IO ()
-main = putStrLn "Sup"
+main = exportFile "test.mid" mainMidi
