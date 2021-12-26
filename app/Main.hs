@@ -6,7 +6,7 @@ import Codec.Midi
     Midi (Midi, fileType, timeDiv, tracks),
     Ticks,
     TimeDiv (TicksPerBeat),
-    exportFile,
+    exportFile
   )
 
 infixr 5 :~:
@@ -44,16 +44,18 @@ data NoteSymbol
 data Step = Semitone | Tone
   deriving (Show)
 
-data Note a = Pitch Duration a | Rest Duration
+data NoteProperties a = Pitch Duration a | Rest Duration
+  deriving (Show)
 
-data Sequence a = Note a | Sequence a :~: Sequence a
+data Sequence a = Note (NoteProperties a) | Sequence a :~: Sequence a
   deriving (Show)
 
 sequence1 :: Sequence NoteSymbol
-sequence1 = Note A :~: Note B :~: Note C
+sequence1 = Note (Pitch 30 A) :~: Note (Rest 30)
 
 sequenceToMidi :: Sequence NoteSymbol -> Int
-sequenceToMidi (Note a1) = note2NumericNote a1
+sequenceToMidi (Note (Pitch _ a1)) = note2NumericNote a1
+sequenceToMidi (Note (Rest a1)) = 0
 sequenceToMidi (a1 :~: a2) = sequenceToMidi a1
 
 note2NumericNote :: NoteSymbol -> NumericNote
@@ -88,23 +90,41 @@ buildScale = scanl (\x y -> step2Int y + x) 0
 transpose :: Int -> [Int] -> [Int]
 transpose offset = map (+ offset)
 
-midiNote :: NumericNote -> [(Ticks, Message)]
-midiNote pitch =
-  [ (0, NoteOn 0 pitch 80),
-    (24, NoteOn 0 pitch 0)
+midiNote :: NumericNote -> Ticks -> [(Ticks, Message)]
+midiNote pitch ticks =
+  [
+    (0, NoteOn 0 pitch 80),
+    (ticks, NoteOn 0 pitch 0)
   ]
+
+midiChord :: [NumericNote] -> Ticks -> [(Ticks, Message)]
+midiChord [] ticks = []
+midiChord (x : xs) ticks =
+  map (\note -> (0, NoteOn 0 note 80)) (x : xs)
+    ++ [(ticks, NoteOn 0 x 0)]
+    ++ map (\note -> (0, NoteOn 0 note 0)) xs
 
 track0 :: [(Ticks, Message)]
 track0 =
-  concatMap midiNote (transpose 0 (buildScale ionianSteps))
+  concatMap (`midiNote` 2) (transpose 0 (buildScale ionianSteps))
+    ++ [(0, TrackEnd)]
+
+track1 :: [(Ticks, Message)]
+track1 =
+  midiNote 60 12
+    ++ [(0, TrackEnd)]
+
+track2 :: [(Ticks, Message)]
+track2 =
+  midiChord (transpose 0 (buildScale ionianSteps)) 12
     ++ [(0, TrackEnd)]
 
 mainMidi :: Midi
 mainMidi =
   Midi
     { fileType = MultiTrack,
-      timeDiv = TicksPerBeat 24,
-      tracks = [track0]
+      timeDiv = TicksPerBeat 12,
+      tracks = [track2]
     }
 
 main :: IO ()
