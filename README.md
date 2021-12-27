@@ -1,7 +1,7 @@
 # Harmonium
-Experimental music generation.
+The idea is to have a tool to help with composing music, generate melodies, generate chord progressions, etc. 
 
-In early development.
+The scope is not well defined yet; in early development.
 ## Usage
 
 ### Generating scales & modes
