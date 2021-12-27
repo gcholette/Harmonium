@@ -19,6 +19,8 @@ type NumericNote = Int
 
 type OctaveNumber = Int
 
+type Track = [(Ticks, Message)]
+
 data Mode
   = Ionian
   | Dorian
@@ -56,23 +58,41 @@ data Sequence a
   | Sequence a :~: Sequence a
   deriving (Show)
 
-note2Num :: NoteSymbol -> NumericNote
-note2Num C = 0
-note2Num Cs = 1
-note2Num D = 2
-note2Num Ds = 3
-note2Num E = 4
-note2Num F = 5
-note2Num Fs = 6
-note2Num G = 7
-note2Num Gs = 8
-note2Num A = 9
-note2Num As = 10
-note2Num B = 11
+ionianSteps :: [Step]
+ionianSteps = [Tone, Tone, Semitone, Tone, Tone, Tone, Semitone]
+
+note2num :: NoteSymbol -> NumericNote
+note2num C = 0
+note2num Cs = 1
+note2num D = 2
+note2num Ds = 3
+note2num E = 4
+note2num F = 5
+note2num Fs = 6
+note2num G = 7
+note2num Gs = 8
+note2num A = 9
+note2num As = 10
+note2num B = 11
+
+initMode :: Mode -> NoteSymbol -> [NumericNote]
+initMode Ionian = buildPitchedMode 0
+initMode Dorian = buildPitchedMode 1
+initMode Phrygian = buildPitchedMode 2
+initMode Lydian = buildPitchedMode 3
+initMode Mixolodian = buildPitchedMode 4
+initMode Aeolian = buildPitchedMode 5
+initMode Locrian = buildPitchedMode 6
 
 step2Int :: Step -> Int
 step2Int Semitone = 1
 step2Int Tone = 2
+
+buildPitchedMode :: NumericNote -> NoteSymbol -> [NumericNote]
+buildPitchedMode n note =
+  transpose
+    (note2num note)
+    (buildScale (rotateSteps ionianSteps n))
 
 transpose :: Int -> [NumericNote] -> [NumericNote]
 transpose offset = map (+ offset)
@@ -80,31 +100,18 @@ transpose offset = map (+ offset)
 transposeNote :: NumericNote -> Int -> NumericNote
 transposeNote note offset = offset + note
 
-ionianSteps :: [Step]
-ionianSteps = [Tone, Tone, Semitone, Tone, Tone, Tone, Semitone]
-
 rotateSteps :: [Step] -> Int -> [Step]
 rotateSteps [] _ = []
 rotateSteps steps 0 = steps
 rotateSteps (x : xs) n = rotateSteps (xs ++ [x]) (n - 1)
 
-extendList :: [a] -> [a]
-extendList lst = lst ++ lst ++ lst ++ lst
+extendList :: [a] -> Int -> [a]
+extendList lst 0 = lst
+extendList lst n = lst ++ extendList lst (n - 1)
 
 buildScale :: [Step] -> [Int]
-buildScale steps = transpose 24 (scanl (\x y -> step2Int y + x) 0 (extendList steps))
-
-ionianScale :: [NumericNote]
-ionianScale = transpose 24 (buildScale ionianSteps)
-
-mode2numeric :: Mode -> [NumericNote]
-mode2numeric Ionian = buildScale (rotateSteps ionianSteps 0)
-mode2numeric Dorian = buildScale (rotateSteps ionianSteps 1)
-mode2numeric Phrygian = buildScale (rotateSteps ionianSteps 2)
-mode2numeric Lydian = buildScale (rotateSteps ionianSteps 3)
-mode2numeric Mixolodian = buildScale (rotateSteps ionianSteps 4)
-mode2numeric Aeolian = buildScale (rotateSteps ionianSteps 5)
-mode2numeric Locrian = buildScale (rotateSteps ionianSteps 6)
+buildScale steps =
+  transpose 24 (scanl (\x y -> step2Int y + x) 0 (extendList steps 6))
 
 midiNote :: NumericNote -> Ticks -> [(Ticks, Message)]
 midiNote pitch ticks =
@@ -123,7 +130,7 @@ sequence1 :: Sequence NoteProps
 sequence1 = Note (Pitch 30 (A, 4)) :~: Note (Rest 30)
 
 sequenceToMidi :: Sequence NoteProps -> [Int]
-sequenceToMidi (Note (Pitch _ (note, octave))) = [transposeNote (note2Num note) ((octave + 1) * 12)]
+sequenceToMidi (Note (Pitch _ (note, octave))) = [transposeNote (note2num note) ((octave + 1) * 12)]
 sequenceToMidi (Note (Rest a1)) = [0]
 sequenceToMidi (a1 :~: a2) = sequenceToMidi a1 ++ sequenceToMidi a2
 
@@ -139,7 +146,7 @@ track1 =
 
 track2 :: [(Ticks, Message)]
 track2 =
-  midiChord (buildScale ionianSteps) 12
+  midiChord (initMode Aeolian B) 12
     ++ [(0, TrackEnd)]
 
 mainMidi :: Midi
@@ -150,5 +157,21 @@ mainMidi =
       tracks = [track2]
     }
 
+makeMidi :: [(Ticks, Message)] -> Midi
+makeMidi track =
+  Midi
+    { fileType = MultiTrack,
+      timeDiv = TicksPerBeat 12,
+      tracks = [track]
+    }
+
+generateModeMidi :: Mode -> NoteSymbol -> Midi
+generateModeMidi mode tonality =
+  makeMidi (midiChord (initMode mode tonality) 12 ++ [(0, TrackEnd)])
+
+exportModeToFile :: Mode -> NoteSymbol -> String -> IO ()
+exportModeToFile mode tonality filename =
+  exportFile filename (generateModeMidi mode tonality)
+
 main :: IO ()
-main = exportFile "test.mid" mainMidi
+main = exportModeToFile Aeolian B "b_minor.mid"
