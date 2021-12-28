@@ -139,27 +139,17 @@ sequence1 =
     :~: Note (Rest 12)
     :~: Chord (Pitches 12 [(C, 3), (A, 3), (B, 3)])
 
+pitch2id :: PitchProps -> NoteId
+pitch2id (note, octave) =
+  transposeNote
+    ((octave + 1) * 12)
+    (symbol2id note)
+
 sequenceToMidi :: Sequence NoteProps -> Track
 sequenceToMidi (a1 :~: a2) = sequenceToMidi a1 ++ sequenceToMidi a2
 sequenceToMidi (Note (Rest dur)) = midiNote (-1) dur
-sequenceToMidi (Note (Pitch dur (note, octave))) =
-  midiNote
-    ( transposeNote
-        ((octave + 1) * 12)
-        (symbol2id note)
-    )
-    dur
-sequenceToMidi (Chord (Pitches dur pitches)) =
-  midiChord
-    ( map
-        ( \pitch ->
-            transposeNote
-              ((snd pitch + 1) * 12)
-              (symbol2id (fst pitch))
-        )
-        pitches
-    )
-    dur
+sequenceToMidi (Note (Pitch dur pitch)) = midiNote (pitch2id pitch) dur
+sequenceToMidi (Chord (Pitches dur pitches)) = midiChord (map pitch2id pitches) dur
 
 track0 :: Track
 track0 = makeTrack (concatMap (`midiNote` 2) (buildScale majorSteps))
@@ -194,4 +184,5 @@ exportModeToFile mode tonality filename =
   exportFile filename (generateModeMidi mode tonality)
 
 main :: IO ()
-main = exportModeToFile Aeolian B "b_minor.mid"
+--main = exportModeToFile Aeolian B "b_minor.mid"
+main = exportFile "test_track3.mid" (makeMidi [track3])
