@@ -1,0 +1,10 @@
+cradle:
+  cabal:
+    - path: "lib/Main.hs"
+      component: "harmonium:exe:harmonium"
+
+    - path: "lib/Midi.hs"
+      component: "harmonium:exe:harmonium"
+
+    - path: "lib/Harmony.hs"
+      component: "harmonium:exe:harmonium"

@@ -4,6 +4,13 @@ The idea is to have a tool to help with composing music, generate melodies, gene
 The scope is not well defined yet; in early development.
 ## Usage
 
+### Development
+
+Open ghci with
+```
+cabal repl
+```
+
 ### Generating scales & modes
 
 Iniside ghci
