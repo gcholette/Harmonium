@@ -50,15 +50,16 @@ data Step = Semitone | Tone
 
 type PitchProps = (NoteSymbol, OctaveNumber)
 
-data NoteProps = Pitch Duration PitchProps | Rest Duration
+newtype Pitch = Pitch PitchProps
   deriving (Show)
 
-data ChordProps = Pitches Duration [PitchProps]
+newtype Pitches = Pitches [PitchProps]
   deriving (Show)
 
 data Sequence a
-  = Note NoteProps
-  | Chord ChordProps
+  = Note Duration Pitch
+  | Chord Duration Pitches
+  | Rest Duration
   | Sequence a :~: Sequence a
   deriving (Show)
 
@@ -131,13 +132,13 @@ midiChord (x : xs) ticks =
 
 sequence1 :: Sequence a
 sequence1 =
-  Note (Pitch 12 (A, 4))
-    :~: Note (Rest 12)
-    :~: Note (Pitch 12 (C, 3))
-    :~: Note (Rest 12)
-    :~: Chord (Pitches 12 [(C, 3), (A, 3), (G, 4)])
-    :~: Note (Rest 12)
-    :~: Chord (Pitches 12 [(C, 3), (A, 3), (B, 3)])
+  Note 12 (Pitch (A, 4))
+    :~: Rest 12
+    :~: Note 12 (Pitch (C, 3))
+    :~: Rest 12
+    :~: Chord 12 (Pitches [(C, 3), (A, 3), (G, 4)])
+    :~: Rest 12
+    :~: Chord 12 (Pitches [(C, 3), (A, 3), (B, 3)])
 
 pitch2id :: PitchProps -> NoteId
 pitch2id (note, octave) =
@@ -145,11 +146,11 @@ pitch2id (note, octave) =
     ((octave + 1) * 12)
     (symbol2id note)
 
-sequenceToMidi :: Sequence NoteProps -> Track
+sequenceToMidi :: Sequence a -> Track
 sequenceToMidi (a1 :~: a2) = sequenceToMidi a1 ++ sequenceToMidi a2
-sequenceToMidi (Note (Rest dur)) = midiNote (-1) dur
-sequenceToMidi (Note (Pitch dur pitch)) = midiNote (pitch2id pitch) dur
-sequenceToMidi (Chord (Pitches dur pitches)) = midiChord (map pitch2id pitches) dur
+sequenceToMidi (Rest dur) = midiNote (-1) dur
+sequenceToMidi (Note dur (Pitch pitch)) = midiNote (pitch2id pitch) dur
+sequenceToMidi (Chord dur (Pitches pitches)) = midiChord (map pitch2id pitches) dur
 
 track0 :: Track
 track0 = makeTrack (concatMap (`midiNote` 2) (buildScale majorSteps))
