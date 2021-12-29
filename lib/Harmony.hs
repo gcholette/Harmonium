@@ -18,6 +18,7 @@ data Mode
   | Mixolodian
   | Aeolian
   | Locrian
+  deriving (Show)
 
 data NoteSymbol
   = A
@@ -38,6 +39,16 @@ data Step = Semitone | Tone
   deriving (Show)
 
 type PitchProps = (NoteSymbol, OctaveNumber)
+
+type Degree = Int
+
+type ScalePitchProps = (NoteSymbol, OctaveNumber, Degree)
+
+data ScaleBlueprint a = ScaleBlueprint a [Step]
+  deriving (Show)
+
+data PitchedScale a = PitchedScale NoteSymbol (ScaleBlueprint Mode) [ScalePitchProps]
+  deriving (Show)
 
 newtype Pitch = Pitch PitchProps
   deriving (Show)
@@ -107,7 +118,22 @@ transpose offset = map (+ offset)
 transposeNote :: Int -> NoteId -> NoteId
 transposeNote offset note = offset + note
 
-buildScale :: [Step] -> [Int]
+pitch2id :: PitchProps -> NoteId
+pitch2id (note, octave) =
+  transposeNote
+    ((octave + 1) * 12)
+    (symbol2id note)
+
+id2pitch :: NoteId -> PitchProps
+id2pitch noteId = (id2symbol noteId, (noteId `div` 12) - 1)
+
+ids2pitches :: [NoteId] -> [PitchProps]
+ids2pitches = map id2pitch
+
+pitches2ids :: [PitchProps] -> [NoteId]
+pitches2ids = map pitch2id
+
+buildScale :: [Step] -> [NoteId]
 buildScale steps =
   transpose 24 (scanl (\x y -> step2Int y + x) 0 (extendList steps 6))
 
@@ -126,11 +152,4 @@ initMode Mixolodian = buildPitchedMode 4
 initMode Aeolian = buildPitchedMode 5
 initMode Locrian = buildPitchedMode 6
 
-pitch2id :: PitchProps -> NoteId
-pitch2id (note, octave) =
-  transposeNote
-    ((octave + 1) * 12)
-    (symbol2id note)
-
-id2pitch :: NoteId -> PitchProps
-id2pitch noteId = (id2symbol noteId, (noteId `div` 12) - 1)
+-- getMainChordsFromScale ::
