@@ -10,12 +10,21 @@ sequence1 =
     :~: Rest 12
     :~: Note 12 (Pitch (C, 3))
     :~: Rest 12
-    :~: Chord 12 (Pitches [(C, 3), (A, 3), (G, 4)])
+    :~: Chord 12 (Pitches [(C, 2), (C, 3), (A, 3), (G, 4)])
     :~: Rest 12
     :~: Chord 12 (Pitches [(C, 3), (A, 3), (B, 3)])
 
+-- minorBlueprint :: ScaleBlueprint Mode
+-- minorBlueprint = ScaleBlueprint Aeolian (addStepDegrees (rotateSteps majorSteps 5))
+
+-- minorBluesScale :: ScaleBlueprint Mode -> PitchedScale Mode
+-- minorBluesScale (ScaleBlueprint mode xs) = 
+--   PitchedScale E mode []
+
+  --(ids2pitches (initMode (Aeolian E)))
+
 track0 :: MidiTrack
-track0 = makeTrack (concatMap (`midiNote` 2) (buildScale majorSteps))
+track0 = makeTrack (concatMap (`midiNote` 2) (accumulateSteps2ids majorSteps))
 
 track1 :: MidiTrack
 track1 = makeTrack (midiNote 60 12)
