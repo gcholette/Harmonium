@@ -15,7 +15,7 @@ import Harmony
     Pitch (Pitch),
     Pitches (Pitches),
     Sequence (..),
-    initMode,
+    initModeOld,
     pitch2id,
   )
 
@@ -34,7 +34,7 @@ makeMidi tracks =
 
 generateModeMidi :: Mode -> NoteSymbol -> Midi
 generateModeMidi mode tonality =
-  makeMidi [midiChord (initMode mode tonality) 12 ++ [(0, TrackEnd)]]
+  makeMidi [midiChord (initModeOld mode tonality) 12 ++ [(0, TrackEnd)]]
 
 exportModeToFile :: Mode -> NoteSymbol -> String -> IO ()
 exportModeToFile mode tonality filename =

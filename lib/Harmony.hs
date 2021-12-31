@@ -24,6 +24,9 @@ data Mode
   | Locrian
   deriving (Show)
 
+data Scale = MinorBlues
+  deriving (Show)
+
 data NoteSymbol
   = A
   | B
@@ -44,7 +47,6 @@ data Step = Semitone | Tone
 
 type PitchProps = (NoteSymbol, OctaveNumber)
 
--- might not use pitches in logic except for "manual" input
 -- Step -> NoteId -> Pitch -> NoteId ~> Midi
 newtype Pitch = Pitch PitchProps
   deriving (Show)
@@ -68,27 +70,8 @@ type ScaleNote a = (a, Degree)
 data ScaleBlueprint a = ScaleBlueprint a [Degree]
   deriving (Show)
 
-data PitchedScale a = PitchedScale NoteSymbol a [ScaleNote NoteId]
+data PitchedScale a b = PitchedScale NoteSymbol a [ScaleNote b]
   deriving (Show)
-
-a1 :: ScaleBlueprint Mode
-a1 =
-  ScaleBlueprint
-    Aeolian
-    [ Degree Local Reg 1,
-      Degree Local Reg 2,
-      Degree Local Flat 3,
-      Degree Local Reg 4,
-      Degree Foreign Sharp 4,
-      Degree Local Reg 5,
-      Degree Local Flat 6,
-      Degree Local Flat 7
-    ]
-
-a2 :: ScaleBlueprint Mode -> [Int]
-a2 (ScaleBlueprint Aeolian _) = [1]
-a2 (ScaleBlueprint _ ((Degree l t i) : xs)) = [1]
-a2 (ScaleBlueprint _ _) = [1]
 
 data Sequence a
   = Note Duration Pitch
@@ -100,21 +83,50 @@ data Sequence a
 majorSteps :: [Step]
 majorSteps = [Tone, Tone, Semitone, Tone, Tone, Tone, Semitone]
 
-diminishedSteps :: [Step]
-diminishedSteps = [Tone, Semitone, Tone, Semitone, Tone, Semitone, Tone]
+aeolianDegrees :: [Degree]
+aeolianDegrees =
+  [ Degree Local Reg 1,
+    Degree Local Reg 2,
+    Degree Local Flat 3,
+    Degree Local Reg 4,
+    Degree Local Reg 5,
+    Degree Local Flat 6,
+    Degree Local Flat 7
+  ]
+
+minorBluesDegrees :: [Degree]
+minorBluesDegrees =
+  [ Degree Local Reg 1,
+    Degree Local Flat 3,
+    Degree Local Reg 4,
+    Degree Foreign Sharp 4,
+    Degree Local Reg 5,
+    Degree Local Flat 7
+  ]
+
+zipSteps :: [b] -> [(Step, b)]
+zipSteps = zip majorSteps
+
+moveNoteWithDegreeType :: NoteId -> DegreeType -> NoteId
+moveNoteWithDegreeType n Reg = n
+moveNoteWithDegreeType n Flat = n - 1
+moveNoteWithDegreeType n Sharp = n + 1
+moveNoteWithDegreeType n DoubleFlat = n - 2
+moveNoteWithDegreeType n DoubleSharp = n + 2
+
+majorIds :: [NoteId]
+majorIds = accumulateSteps2ids majorSteps
+
+majorDegreeBase :: [(DegreeId, NoteId)]
+majorDegreeBase = [1 .. 7] `zip` majorIds
+
+getDegreeBaseById :: DegreeId -> (DegreeId, NoteId)
+getDegreeBaseById degId = majorDegreeBase !! (degId -1)
 
 rotateSteps :: [Step] -> Int -> [Step]
 rotateSteps [] _ = []
 rotateSteps steps 0 = steps
 rotateSteps (x : xs) n = rotateSteps (xs ++ [x]) (n - 1)
-
---addStepDegrees :: [Step] -> [ScaleNote Step]
---addStepDegrees steps = zip steps (map Reg [1 .. (length steps)])
-
---applyPitchToScaleBlueprint :: [StepBlueprint] -> NoteSymbol -> [ScalePitchProps]
---applyPitchToScaleBlueprint steps note =
---  let (a,b) = unzip steps
---  in zip (map id2pitch (accumulateSteps2ids steps)) b
 
 extendList :: [a] -> Int -> [a]
 extendList lst 0 = lst
@@ -193,13 +205,34 @@ buildPitchedMode n note =
     (symbol2id note)
     (accumulateSteps2ids $ rotateSteps (extendSteps majorSteps) n)
 
-initMode :: Mode -> NoteSymbol -> [NoteId]
-initMode Ionian = buildPitchedMode 0
-initMode Dorian = buildPitchedMode 1
-initMode Phrygian = buildPitchedMode 2
-initMode Lydian = buildPitchedMode 3
-initMode Mixolodian = buildPitchedMode 4
-initMode Aeolian = buildPitchedMode 5
-initMode Locrian = buildPitchedMode 6
+initModeOld :: Mode -> NoteSymbol -> [NoteId]
+initModeOld Ionian = buildPitchedMode 0
+initModeOld Dorian = buildPitchedMode 1
+initModeOld Phrygian = buildPitchedMode 2
+initModeOld Lydian = buildPitchedMode 3
+initModeOld Mixolodian = buildPitchedMode 4
+initModeOld Aeolian = buildPitchedMode 5
+initModeOld Locrian = buildPitchedMode 6
 
--- getMainChordsFromScale ::
+pitchDegreesFromTones :: NoteSymbol -> [Degree] -> NoteId -> [ScaleNote Pitch] -> [ScaleNote Pitch]
+pitchDegreesFromTones note [] accNoteId accScaleNotes = accScaleNotes
+pitchDegreesFromTones note ((Degree x degType degId) : degs) accNoteId accScaleNotes =
+  let (_, matchingNoteId) = getDegreeBaseById degId
+      -- + 12 to transpose to the 0 octave
+      newNoteId = transposeNote (symbol2id note + 12) (moveNoteWithDegreeType matchingNoteId degType)
+      updatedScaleNotes = (accScaleNotes ++ [(id2pitch newNoteId, Degree x degType degId)])
+   in pitchDegreesFromTones note degs newNoteId updatedScaleNotes
+
+initScale :: NoteSymbol -> ScaleBlueprint a -> PitchedScale a Pitch
+initScale note (ScaleBlueprint kind degrees) =
+  let pitchedDegrees = pitchDegreesFromTones note degrees 0 []
+   in PitchedScale note kind pitchedDegrees
+
+aeolianBlueprint :: ScaleBlueprint Mode
+aeolianBlueprint = ScaleBlueprint Aeolian aeolianDegrees
+
+minorBluesBlueprint :: ScaleBlueprint Scale
+minorBluesBlueprint = ScaleBlueprint MinorBlues minorBluesDegrees
+
+minorBlues :: NoteSymbol -> PitchedScale Scale Pitch
+minorBlues note = initScale note minorBluesBlueprint
