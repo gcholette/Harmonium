@@ -1,9 +1,5 @@
 module Harmony where
 
--- Functional harmony, classic theory
-
-import Data.Function ((&))
-
 infixr 5 :~:
 
 type Semitones = Int
@@ -18,14 +14,15 @@ data Scale
   = Major
   | Minor
   | HarmonicMinor
+  | PentatonicMinor
   | MinorBlues
   | Ionian
---  | Dorian
---  | Phrygian
---  | Lydian
---  | Mixolodian
   | Aeolian
---  | Locrian
+  --  | Dorian
+  --  | Phrygian
+  --  | Lydian
+  --  | Mixolodian
+  --  | Locrian
   deriving (Show)
 
 data NoteSymbol
@@ -48,7 +45,6 @@ data Step = Semitone | Tone
 
 type PitchProps = (NoteSymbol, OctaveNumber)
 
--- Step -> NoteId -> Pitch -> NoteId ~> Midi
 newtype Pitch = Pitch PitchProps
   deriving (Show)
 
@@ -58,13 +54,13 @@ newtype Pitches = Pitches [PitchProps]
 type DegreeId = Int
 
 data DegreeType = Reg | Sharp | Flat | DoubleSharp | DoubleFlat
-  deriving (Show)
+  deriving (Show, Eq)
 
 data Locality = Foreign | Local
-  deriving (Show)
+  deriving (Show, Eq)
 
 data Degree = Degree Locality DegreeType DegreeId
-  deriving (Show)
+  deriving (Show, Eq)
 
 type ScaleNote a = (a, Degree)
 
@@ -187,41 +183,58 @@ pitchDegreesFromTones note ((Degree x degType degId) : degs) accNoteId accScaleN
 
 createScale :: ScaleBlueprint a -> NoteSymbol -> PitchedScale a Pitch
 createScale (ScaleBlueprint kind degrees) note =
+  -- sorting by pitch would be nice here
   let pitchedDegrees = pitchDegreesFromTones note degrees 0 []
    in PitchedScale note kind pitchedDegrees
 
-ionianDegrees :: [Degree]
-ionianDegrees = map (Degree Local Reg) [1 .. 7]
+replaceDegreeAt :: [Degree] -> Degree -> [Degree]
+replaceDegreeAt degs (Degree x1 y1 i1) =
+  map
+    ( \(Degree x y i) ->
+        if i == i1 then Degree x1 y1 i1 else Degree x y i
+    )
+    degs
 
-aeolianDegrees :: [Degree]
-aeolianDegrees =
-  [ Degree Local Reg 1,
-    Degree Local Reg 2,
-    Degree Local Flat 3,
-    Degree Local Reg 4,
-    Degree Local Reg 5,
-    Degree Local Flat 6,
-    Degree Local Flat 7
-  ]
+(-<) :: [Degree] -> Degree -> [Degree]
+xs -< x = replaceDegreeAt xs x
 
-harmonicMinorDegrees :: [Degree]
-harmonicMinorDegrees =
-  init aeolianDegrees ++ [Degree Local Reg 7]
+(-+) :: [Degree] -> Degree -> [Degree]
+xs -+ x = x : xs
 
-minorBluesDegrees :: [Degree]
-minorBluesDegrees =
-  [ Degree Local Reg 1,
-    Degree Local Flat 3,
-    Degree Local Reg 4,
-    Degree Foreign Sharp 4,
-    Degree Local Reg 5,
-    Degree Local Flat 7
-  ]
+(-!) :: [Degree] -> Degree -> [Degree]
+xs -! x = filter (x /=) xs
+
+ionianDegs :: [Degree]
+ionianDegs = map (Degree Local Reg) [1 .. 7]
+
+aeolianDegs :: [Degree]
+aeolianDegs =
+  ionianDegs
+    -< Degree Local Flat 3
+    -< Degree Local Flat 6
+    -< Degree Local Flat 7
+
+harmonicMinorDegs :: [Degree]
+harmonicMinorDegs =
+  aeolianDegs
+    -< Degree Local Reg 7
+
+minorPentaDegs :: [Degree]
+minorPentaDegs =
+  aeolianDegs
+    -! Degree Local Reg 2
+    -! Degree Local Flat 6
+
+minorBluesDegs :: [Degree]
+minorBluesDegs =
+  minorPentaDegs
+    -+ Degree Foreign Sharp 4
 
 scale :: Scale -> NoteSymbol -> PitchedScale Scale Pitch
-scale Major = createScale $ ScaleBlueprint Major ionianDegrees
-scale Minor = createScale $ ScaleBlueprint Minor aeolianDegrees
-scale HarmonicMinor = createScale $ ScaleBlueprint HarmonicMinor harmonicMinorDegrees
-scale MinorBlues = createScale $ ScaleBlueprint MinorBlues minorBluesDegrees
-scale Ionian = createScale $ ScaleBlueprint Ionian ionianDegrees
-scale Aeolian = createScale $ ScaleBlueprint Aeolian aeolianDegrees
+scale Major = createScale $ ScaleBlueprint Major ionianDegs
+scale Minor = createScale $ ScaleBlueprint Minor aeolianDegs
+scale HarmonicMinor = createScale $ ScaleBlueprint HarmonicMinor harmonicMinorDegs
+scale PentatonicMinor = createScale $ ScaleBlueprint PentatonicMinor minorPentaDegs
+scale MinorBlues = createScale $ ScaleBlueprint MinorBlues minorBluesDegs
+scale Ionian = createScale $ ScaleBlueprint Ionian ionianDegs
+scale Aeolian = createScale $ ScaleBlueprint Aeolian aeolianDegs
