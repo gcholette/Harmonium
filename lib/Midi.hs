@@ -9,13 +9,11 @@ import Codec.Midi
     exportFile,
   )
 import Harmony
-  ( Mode,
-    NoteId,
+  ( NoteId,
     NoteSymbol,
     Pitch (Pitch),
     Pitches (Pitches),
     Sequence (..),
-    initModeOld,
     pitch2id,
   )
 
@@ -32,13 +30,13 @@ makeMidi tracks =
       tracks = tracks
     }
 
-generateModeMidi :: Mode -> NoteSymbol -> Midi
-generateModeMidi mode tonality =
-  makeMidi [midiChord (initModeOld mode tonality) 12 ++ [(0, TrackEnd)]]
+--generateModeMidi :: Mode -> NoteSymbol -> Midi
+--generateModeMidi mode tonality =
+--  makeMidi [midiChord (initModeOld mode tonality) 12 ++ [(0, TrackEnd)]]
 
-exportModeToFile :: Mode -> NoteSymbol -> String -> IO ()
-exportModeToFile mode tonality filename =
-  exportFile filename (generateModeMidi mode tonality)
+--exportModeToFile :: Mode -> NoteSymbol -> String -> IO ()
+--exportModeToFile mode tonality filename =
+--  exportFile filename (generateModeMidi mode tonality)
 
 -- need to look into making rests in midi
 midiNote :: NoteId -> Ticks -> MidiTrack

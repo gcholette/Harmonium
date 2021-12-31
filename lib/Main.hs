@@ -20,8 +20,8 @@ track0 = makeTrack (concatMap (`midiNote` 2) (accumulateSteps2ids majorSteps))
 track1 :: MidiTrack
 track1 = makeTrack (midiNote 60 12)
 
-track2 :: MidiTrack
-track2 = makeTrack (midiChord (initModeOld Aeolian B) 12)
+--track2 :: MidiTrack
+--track2 = makeTrack (midiChord (initModeOld Aeolian B) 12)
 
 track3 :: MidiTrack
 track3 =

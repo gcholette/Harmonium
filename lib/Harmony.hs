@@ -14,17 +14,18 @@ type NoteId = Int
 
 type OctaveNumber = Int
 
-data Mode
-  = Ionian
-  | Dorian
-  | Phrygian
-  | Lydian
-  | Mixolodian
+data Scale
+  = Major
+  | Minor
+  | HarmonicMinor
+  | MinorBlues
+  | Ionian
+--  | Dorian
+--  | Phrygian
+--  | Lydian
+--  | Mixolodian
   | Aeolian
-  | Locrian
-  deriving (Show)
-
-data Scale = MinorBlues
+--  | Locrian
   deriving (Show)
 
 data NoteSymbol
@@ -83,27 +84,6 @@ data Sequence a
 majorSteps :: [Step]
 majorSteps = [Tone, Tone, Semitone, Tone, Tone, Tone, Semitone]
 
-aeolianDegrees :: [Degree]
-aeolianDegrees =
-  [ Degree Local Reg 1,
-    Degree Local Reg 2,
-    Degree Local Flat 3,
-    Degree Local Reg 4,
-    Degree Local Reg 5,
-    Degree Local Flat 6,
-    Degree Local Flat 7
-  ]
-
-minorBluesDegrees :: [Degree]
-minorBluesDegrees =
-  [ Degree Local Reg 1,
-    Degree Local Flat 3,
-    Degree Local Reg 4,
-    Degree Foreign Sharp 4,
-    Degree Local Reg 5,
-    Degree Local Flat 7
-  ]
-
 zipSteps :: [b] -> [(Step, b)]
 zipSteps = zip majorSteps
 
@@ -123,10 +103,10 @@ majorDegreeBase = [1 .. 7] `zip` majorIds
 getDegreeBaseById :: DegreeId -> (DegreeId, NoteId)
 getDegreeBaseById degId = majorDegreeBase !! (degId -1)
 
-rotateSteps :: [Step] -> Int -> [Step]
-rotateSteps [] _ = []
-rotateSteps steps 0 = steps
-rotateSteps (x : xs) n = rotateSteps (xs ++ [x]) (n - 1)
+rotate :: [a] -> Int -> [a]
+rotate [] _ = []
+rotate xs 0 = xs
+rotate (x : xs) n = rotate (xs ++ [x]) (n - 1)
 
 extendList :: [a] -> Int -> [a]
 extendList lst 0 = lst
@@ -172,9 +152,6 @@ id2symbol noteId =
   where
     n = noteId `mod` 12
 
-transpose :: Int -> [NoteId] -> [NoteId]
-transpose offset = map (+ offset)
-
 transposeNote :: Int -> NoteId -> NoteId
 transposeNote offset note = offset + note
 
@@ -199,21 +176,6 @@ pitches2ids = map pitch2id
 accumulateSteps2ids :: [Step] -> [NoteId]
 accumulateSteps2ids = scanl (\x y -> step2Int y + x) 0
 
-buildPitchedMode :: NoteId -> NoteSymbol -> [NoteId]
-buildPitchedMode n note =
-  transpose
-    (symbol2id note)
-    (accumulateSteps2ids $ rotateSteps (extendSteps majorSteps) n)
-
-initModeOld :: Mode -> NoteSymbol -> [NoteId]
-initModeOld Ionian = buildPitchedMode 0
-initModeOld Dorian = buildPitchedMode 1
-initModeOld Phrygian = buildPitchedMode 2
-initModeOld Lydian = buildPitchedMode 3
-initModeOld Mixolodian = buildPitchedMode 4
-initModeOld Aeolian = buildPitchedMode 5
-initModeOld Locrian = buildPitchedMode 6
-
 pitchDegreesFromTones :: NoteSymbol -> [Degree] -> NoteId -> [ScaleNote Pitch] -> [ScaleNote Pitch]
 pitchDegreesFromTones note [] accNoteId accScaleNotes = accScaleNotes
 pitchDegreesFromTones note ((Degree x degType degId) : degs) accNoteId accScaleNotes =
@@ -223,16 +185,43 @@ pitchDegreesFromTones note ((Degree x degType degId) : degs) accNoteId accScaleN
       updatedScaleNotes = (accScaleNotes ++ [(id2pitch newNoteId, Degree x degType degId)])
    in pitchDegreesFromTones note degs newNoteId updatedScaleNotes
 
-initScale :: NoteSymbol -> ScaleBlueprint a -> PitchedScale a Pitch
-initScale note (ScaleBlueprint kind degrees) =
+createScale :: ScaleBlueprint a -> NoteSymbol -> PitchedScale a Pitch
+createScale (ScaleBlueprint kind degrees) note =
   let pitchedDegrees = pitchDegreesFromTones note degrees 0 []
    in PitchedScale note kind pitchedDegrees
 
-aeolianBlueprint :: ScaleBlueprint Mode
-aeolianBlueprint = ScaleBlueprint Aeolian aeolianDegrees
+ionianDegrees :: [Degree]
+ionianDegrees = map (Degree Local Reg) [1 .. 7]
 
-minorBluesBlueprint :: ScaleBlueprint Scale
-minorBluesBlueprint = ScaleBlueprint MinorBlues minorBluesDegrees
+aeolianDegrees :: [Degree]
+aeolianDegrees =
+  [ Degree Local Reg 1,
+    Degree Local Reg 2,
+    Degree Local Flat 3,
+    Degree Local Reg 4,
+    Degree Local Reg 5,
+    Degree Local Flat 6,
+    Degree Local Flat 7
+  ]
 
-minorBlues :: NoteSymbol -> PitchedScale Scale Pitch
-minorBlues note = initScale note minorBluesBlueprint
+harmonicMinorDegrees :: [Degree]
+harmonicMinorDegrees =
+  init aeolianDegrees ++ [Degree Local Reg 7]
+
+minorBluesDegrees :: [Degree]
+minorBluesDegrees =
+  [ Degree Local Reg 1,
+    Degree Local Flat 3,
+    Degree Local Reg 4,
+    Degree Foreign Sharp 4,
+    Degree Local Reg 5,
+    Degree Local Flat 7
+  ]
+
+scale :: Scale -> NoteSymbol -> PitchedScale Scale Pitch
+scale Major = createScale $ ScaleBlueprint Major ionianDegrees
+scale Minor = createScale $ ScaleBlueprint Minor aeolianDegrees
+scale HarmonicMinor = createScale $ ScaleBlueprint HarmonicMinor harmonicMinorDegrees
+scale MinorBlues = createScale $ ScaleBlueprint MinorBlues minorBluesDegrees
+scale Ionian = createScale $ ScaleBlueprint Ionian ionianDegrees
+scale Aeolian = createScale $ ScaleBlueprint Aeolian aeolianDegrees
