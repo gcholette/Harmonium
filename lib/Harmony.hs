@@ -1,6 +1,6 @@
 module Harmony where
 
-import Control.Arrow (Arrow(first))
+import Control.Arrow (Arrow (first))
 
 infixr 5 :~:
 
@@ -153,15 +153,18 @@ transposeNote offset note = offset + note
 transposePitch :: Int -> Pitch -> Pitch
 transposePitch n pitch = id2pitch (pitch2id pitch + n)
 
-transposeScaleNotes ::  Int -> [ScaleNote Pitch] -> [ScaleNote Pitch]
+transposeScaleNotes :: Int -> [ScaleNote Pitch] -> [ScaleNote Pitch]
 transposeScaleNotes z = map (first (transposePitch z))
 
 transposeScale :: Int -> PitchedScale Pitch -> PitchedScale Pitch
 transposeScale n (PitchedScale x y ns) =
   PitchedScale x y (transposeScaleNotes n ns)
 
---extendScale ::  Int -> PitchedScale Pitch -> PitchedScale Pitch
---extendScale n (PitchedScale x y ns) = PitchedScale x y (map (\i -> ns!!1 ) [1..n])
+extendScale :: Int -> [ScaleNote Pitch] -> [ScaleNote Pitch]
+extendScale i ns = recurseExtend i ns ns
+  where
+    recurseExtend (-1) ns acc = acc
+    recurseExtend i ns acc = recurseExtend (i -1) ns (acc ++ transposeScaleNotes (12 + (12 * i)) ns)
 
 pitch2id :: Pitch -> NoteId
 pitch2id (Pitch (note, octave)) =
@@ -186,7 +189,7 @@ pitchDegreesFromTones note [] accNoteId accScaleNotes = accScaleNotes
 pitchDegreesFromTones note ((Degree x degType degId) : degs) accNoteId accScaleNotes =
   let (_, matchingNoteId) = getDegreeBaseById degId
       -- + 12 to transpose to the 0 octave
-      newNoteId = transposeNote (symbol2id note + 24) (moveNoteWithDegreeType matchingNoteId degType)
+      newNoteId = transposeNote (symbol2id note + 12) (moveNoteWithDegreeType matchingNoteId degType)
       updatedScaleNotes = (accScaleNotes ++ [(id2pitch newNoteId, Degree x degType degId)])
    in pitchDegreesFromTones note degs newNoteId updatedScaleNotes
 
@@ -194,9 +197,7 @@ createScale :: ScaleBlueprint -> NoteSymbol -> PitchedScale Pitch
 createScale (ScaleBlueprint kind degrees) note =
   -- sorting by pitch would be nice here
   let pitchedDegrees = pitchDegreesFromTones note degrees 0 []
-   in PitchedScale note kind pitchedDegrees
-
-
+   in PitchedScale note kind (extendScale 6 pitchedDegrees)
 
 replaceDegreeAt :: [Degree] -> Degree -> [Degree]
 replaceDegreeAt degs (Degree x1 y1 i1) =

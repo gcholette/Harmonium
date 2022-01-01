@@ -17,7 +17,7 @@ import Harmony
     Sequence (..),
     pitch2id,
     pitches2ids,
-    scale,
+    scale, extendScale
   )
 
 type MidiTrack = [(Ticks, Message)]
