@@ -1,5 +1,7 @@
 module Harmony where
 
+import Control.Arrow (Arrow(first))
+
 infixr 5 :~:
 
 type Semitones = Int
@@ -48,9 +50,6 @@ type PitchProps = (NoteSymbol, OctaveNumber)
 newtype Pitch = Pitch PitchProps
   deriving (Show)
 
-newtype Pitches = Pitches [PitchProps]
-  deriving (Show)
-
 type DegreeId = Int
 
 data DegreeType = Reg | Sharp | Flat | DoubleSharp | DoubleFlat
@@ -64,15 +63,15 @@ data Degree = Degree Locality DegreeType DegreeId
 
 type ScaleNote a = (a, Degree)
 
-data ScaleBlueprint a = ScaleBlueprint a [Degree]
+data ScaleBlueprint = ScaleBlueprint Scale [Degree]
   deriving (Show)
 
-data PitchedScale a b = PitchedScale NoteSymbol a [ScaleNote b]
+data PitchedScale b = PitchedScale NoteSymbol Scale [ScaleNote b]
   deriving (Show)
 
 data Sequence a
   = Note Duration Pitch
-  | Chord Duration Pitches
+  | Chord Duration [Pitch]
   | Rest Duration
   | Sequence a :~: Sequence a
   deriving (Show)
@@ -151,11 +150,21 @@ id2symbol noteId =
 transposeNote :: Int -> NoteId -> NoteId
 transposeNote offset note = offset + note
 
-transposeScale :: Num a => a -> [ScaleNote a] -> [ScaleNote a]
-transposeScale z = map (\y -> (fst y + z, snd y))
+transposePitch :: Int -> Pitch -> Pitch
+transposePitch n pitch = id2pitch (pitch2id pitch + n)
 
-pitch2id :: PitchProps -> NoteId
-pitch2id (note, octave) =
+transposeScaleNotes ::  Int -> [ScaleNote Pitch] -> [ScaleNote Pitch]
+transposeScaleNotes z = map (first (transposePitch z))
+
+transposeScale :: Int -> PitchedScale Pitch -> PitchedScale Pitch
+transposeScale n (PitchedScale x y ns) =
+  PitchedScale x y (transposeScaleNotes n ns)
+
+--extendScale ::  Int -> PitchedScale Pitch -> PitchedScale Pitch
+--extendScale n (PitchedScale x y ns) = PitchedScale x y (map (\i -> ns!!1 ) [1..n])
+
+pitch2id :: Pitch -> NoteId
+pitch2id (Pitch (note, octave)) =
   transposeNote
     ((octave + 1) * 12)
     (symbol2id note)
@@ -166,7 +175,7 @@ id2pitch noteId = Pitch (id2symbol noteId, (noteId `div` 12) - 1)
 ids2pitches :: [NoteId] -> [Pitch]
 ids2pitches = map id2pitch
 
-pitches2ids :: [PitchProps] -> [NoteId]
+pitches2ids :: [Pitch] -> [NoteId]
 pitches2ids = map pitch2id
 
 accumulateSteps2ids :: [Step] -> [NoteId]
@@ -177,15 +186,17 @@ pitchDegreesFromTones note [] accNoteId accScaleNotes = accScaleNotes
 pitchDegreesFromTones note ((Degree x degType degId) : degs) accNoteId accScaleNotes =
   let (_, matchingNoteId) = getDegreeBaseById degId
       -- + 12 to transpose to the 0 octave
-      newNoteId = transposeNote (symbol2id note + 12) (moveNoteWithDegreeType matchingNoteId degType)
+      newNoteId = transposeNote (symbol2id note + 24) (moveNoteWithDegreeType matchingNoteId degType)
       updatedScaleNotes = (accScaleNotes ++ [(id2pitch newNoteId, Degree x degType degId)])
    in pitchDegreesFromTones note degs newNoteId updatedScaleNotes
 
-createScale :: ScaleBlueprint a -> NoteSymbol -> PitchedScale a Pitch
+createScale :: ScaleBlueprint -> NoteSymbol -> PitchedScale Pitch
 createScale (ScaleBlueprint kind degrees) note =
   -- sorting by pitch would be nice here
   let pitchedDegrees = pitchDegreesFromTones note degrees 0 []
    in PitchedScale note kind pitchedDegrees
+
+
 
 replaceDegreeAt :: [Degree] -> Degree -> [Degree]
 replaceDegreeAt degs (Degree x1 y1 i1) =
@@ -195,12 +206,15 @@ replaceDegreeAt degs (Degree x1 y1 i1) =
     )
     degs
 
+-- Replace
 (-<) :: [Degree] -> Degree -> [Degree]
 xs -< x = replaceDegreeAt xs x
 
+-- Add
 (-+) :: [Degree] -> Degree -> [Degree]
 xs -+ x = x : xs
 
+-- Remove
 (-!) :: [Degree] -> Degree -> [Degree]
 xs -! x = filter (x /=) xs
 
@@ -230,7 +244,7 @@ minorBluesDegs =
   minorPentaDegs
     -+ Degree Foreign Sharp 4
 
-scale :: Scale -> NoteSymbol -> PitchedScale Scale Pitch
+scale :: Scale -> NoteSymbol -> PitchedScale Pitch
 scale Major = createScale $ ScaleBlueprint Major ionianDegs
 scale Minor = createScale $ ScaleBlueprint Minor aeolianDegs
 scale HarmonicMinor = createScale $ ScaleBlueprint HarmonicMinor harmonicMinorDegs

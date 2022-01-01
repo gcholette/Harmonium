@@ -1,8 +1,8 @@
 module Main where
 
 import Codec.Midi (exportFile)
-import Midi
 import Harmony
+import Midi
 
 sequence1 :: Sequence a
 sequence1 =
@@ -10,9 +10,9 @@ sequence1 =
     :~: Rest 12
     :~: Note 12 (Pitch (C, 3))
     :~: Rest 12
-    :~: Chord 12 (Pitches [(C, 2), (C, 3), (A, 3), (G, 4)])
+    :~: Chord 12 [Pitch (C, 2), Pitch (C, 3), Pitch (A, 3), Pitch (G, 4)]
     :~: Rest 12
-    :~: Chord 12 (Pitches [(C, 3), (A, 3), (B, 3)])
+    :~: Chord 12 [Pitch (C, 3), Pitch (A, 3), Pitch (B, 3)]
 
 track0 :: MidiTrack
 track0 = makeTrack (concatMap (`midiNote` 2) (accumulateSteps2ids majorSteps))
@@ -20,8 +20,8 @@ track0 = makeTrack (concatMap (`midiNote` 2) (accumulateSteps2ids majorSteps))
 track1 :: MidiTrack
 track1 = makeTrack (midiNote 60 12)
 
---track2 :: MidiTrack
---track2 = makeTrack (midiChord (initModeOld Aeolian B) 12)
+track2 :: MidiTrack
+track2 = makeTrack (generateScaleMidi Minor As)
 
 track3 :: MidiTrack
 track3 =

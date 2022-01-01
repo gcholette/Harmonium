@@ -12,9 +12,12 @@ import Harmony
   ( NoteId,
     NoteSymbol,
     Pitch (Pitch),
-    Pitches (Pitches),
+    PitchedScale (PitchedScale),
+    Scale,
     Sequence (..),
     pitch2id,
+    pitches2ids,
+    scale,
   )
 
 type MidiTrack = [(Ticks, Message)]
@@ -30,13 +33,11 @@ makeMidi tracks =
       tracks = tracks
     }
 
---generateModeMidi :: Mode -> NoteSymbol -> Midi
---generateModeMidi mode tonality =
---  makeMidi [midiChord (initModeOld mode tonality) 12 ++ [(0, TrackEnd)]]
-
---exportModeToFile :: Mode -> NoteSymbol -> String -> IO ()
---exportModeToFile mode tonality filename =
---  exportFile filename (generateModeMidi mode tonality)
+generateScaleMidi :: Scale -> NoteSymbol -> MidiTrack
+generateScaleMidi s tonality =
+  let PitchedScale _ a notes = scale s tonality
+      (ns, _) = unzip notes
+   in midiChord (pitches2ids ns) 4
 
 -- need to look into making rests in midi
 midiNote :: NoteId -> Ticks -> MidiTrack
@@ -53,5 +54,9 @@ midiChord (x : xs) ticks =
 sequenceToMidi :: Sequence a -> MidiTrack
 sequenceToMidi (a1 :~: a2) = sequenceToMidi a1 ++ sequenceToMidi a2
 sequenceToMidi (Rest dur) = midiNote (-1) dur
-sequenceToMidi (Note dur (Pitch pitch)) = midiNote (pitch2id pitch) dur
-sequenceToMidi (Chord dur (Pitches pitches)) = midiChord (map pitch2id pitches) dur
+sequenceToMidi (Note dur pitch) = midiNote (pitch2id pitch) dur
+sequenceToMidi (Chord dur pitches) = midiChord (pitches2ids pitches) dur
+
+exportScaleToFile :: Scale -> NoteSymbol -> String -> IO ()
+exportScaleToFile s tonality filename =
+  exportFile filename (makeMidi [makeTrack (generateScaleMidi s tonality)])
