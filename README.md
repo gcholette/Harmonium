@@ -6,8 +6,8 @@ The scope is not well defined yet; in early development.
 
 ### Development
 
-Open ghci with
 ```
+cabal install --only-dependencies
 cabal repl
 ```
 
